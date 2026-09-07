@@ -1,0 +1,27 @@
+[project]
+name = "mcp-server-deep-dive-deployment"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "telvis", email = "telvis07@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "mcp[cli]>=2.2.0",
+    "openai>=3.8.0",
+    "pydantic>=2.13.5",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+mcpserver = "mcp_server_deep_dive_deployment.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "mcp_server_deep_dive_deployment"
+
