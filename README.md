@@ -74,10 +74,16 @@ To pin a specific commit, tag, or branch, append it to the URL —
 `git+https://github.com/telvis07/mcp-server-deep-dive-deployment@v0.1.0`. Without a ref, `uvx`
 tracks the default branch, and it caches builds: pass `--refresh` to pick up new commits.
 
+## Tools
+
+| Tool  | Signature                    | Description      |
+| ----- | ---------------------------- | ---------------- |
+| `add` | `add(x: int, y: int) -> int` | Sums 2 numbers.  |
+
 ## Verify the install
 
-Once the server is registered, ask the client to list its tools. You should see `add`, and
-`add(x=2, y=3)` should return `5`.
+Once the server is registered, ask the client to list its tools. Every tool in the table above
+should show up — for the current set, that means `add`, and `add(x=2, y=3)` should return `5`.
 
 ## Project layout
 
@@ -100,4 +106,5 @@ def multiply(x: int, y: int) -> int:
     return x * y
 ```
 
-Restart the client (or `--refresh` the `uvx` install) to pick up the change.
+Restart the client (or `--refresh` the `uvx` install) to pick up the change, and add a row to the
+[Tools](#tools) table above so it stays the one place that lists what this server exposes.
