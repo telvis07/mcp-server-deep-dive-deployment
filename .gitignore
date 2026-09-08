@@ -68,3 +68,4 @@ ipython_config.py
 *.log
 logs/
 tmp/
+_tasks/
