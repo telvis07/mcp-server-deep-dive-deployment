@@ -1,8 +1,9 @@
 # mcp-server-deep-dive-deployment
 
-An example [Model Context Protocol](https://modelcontextprotocol.io) server, built for the MCP
-developer course. It exposes a single `add` tool and is packaged so it can be installed and run
-directly from this GitHub repository — no clone required.
+Example [Model Context Protocol](https://modelcontextprotocol.io) servers, built for the MCP
+developer course. The repo ships two of them — one over **stdio**, one over **streamable HTTP** —
+so the two transports can be compared side by side. Both are packaged so they can be installed and
+run directly from this GitHub repository, with no clone required.
 
 ## Prerequisites
 
@@ -48,7 +49,53 @@ uv run mcpserver-http
 PORT=9000 uv run mcpserver-http
 ```
 
-To poke at the tools interactively instead, use the MCP Inspector:
+## The streamable HTTP server
+
+Stdio servers are launched by the client as a subprocess. A streamable HTTP server is the opposite:
+it has to already be listening, and the client dials a URL. That makes it the transport you want
+once the server lives in a container, on a PaaS, or anywhere across a network.
+
+### Endpoint
+
+```
+http://127.0.0.1:8000/mcp
+```
+
+The path is `/mcp`, not `/` — that default comes from `streamable_http_path`. **Nothing is mounted
+at the root**, so pointing a client at `http://127.0.0.1:8000` gets you:
+
+```
+INFO: 127.0.0.1:63946 - "POST / HTTP/1.1" 404 Not Found
+```
+
+If you see that 404, the path is missing from your URL. Skip the trailing slash too — `/mcp/`
+answers with a 307 redirect.
+
+### Configuration
+
+| Variable | Default     | Purpose                                             |
+| -------- | ----------- | --------------------------------------------------- |
+| `HOST`   | `127.0.0.1` | Interface to bind. Set `0.0.0.0` in a container.     |
+| `PORT`   | `8000`      | Port to bind. Hosting platforms usually inject this. |
+
+```bash
+HOST=0.0.0.0 PORT=9000 uv run mcpserver-http
+```
+
+### Connecting the MCP Inspector
+
+The Inspector's `mcp dev` mode only speaks stdio, so for this server start it yourself first, then
+attach the standalone Inspector:
+
+```bash
+uv run mcpserver-http                      # terminal 1
+npx @modelcontextprotocol/inspector@latest # terminal 2
+```
+
+In the Inspector UI set **Transport Type** to `Streamable HTTP` and **URL** to
+`http://127.0.0.1:8000/mcp`, then Connect.
+
+For the stdio server, `mcp dev` handles the launching for you:
 
 ```bash
 uv run mcp dev src/mcp_server_deep_dive_deployment/deployment.py
@@ -59,21 +106,34 @@ uv run mcp dev src/mcp_server_deep_dive_deployment/deployment.py
 Because the project defines console script entry points, `uvx` can build and run either server
 straight from the repo. Nothing needs to be published to PyPI.
 
-Verify it works end to end:
+Verify it works end to end — swap the trailing script name to pick a server:
 
 ```bash
 uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver
+uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver-http
 ```
+
+To pin a specific commit, tag, or branch, append it to the URL —
+`git+https://github.com/telvis07/mcp-server-deep-dive-deployment@main`. Without a ref, `uvx` tracks
+the default branch, and it caches builds: pass `--refresh` to pick up new commits.
+
+## Connecting a client
+
+The two servers are registered differently, because stdio is launched and HTTP is dialed.
 
 ### Claude Code
 
 ```bash
+# stdio — Claude Code launches it
 claude mcp add demo -- uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver
+
+# streamable HTTP — start the server first, then point at the URL
+claude mcp add --transport http demo-http http://127.0.0.1:8000/mcp
 ```
 
 ### Claude Desktop
 
-Add this to `claude_desktop_config.json`, then restart Claude Desktop:
+Add to `claude_desktop_config.json` and restart Claude Desktop. Both entries can live side by side:
 
 ```json
 {
@@ -85,31 +145,52 @@ Add this to `claude_desktop_config.json`, then restart Claude Desktop:
         "git+https://github.com/telvis07/mcp-server-deep-dive-deployment",
         "mcpserver"
       ]
+    },
+    "demo-http": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://127.0.0.1:8000/mcp"
+      ]
     }
   }
 }
 ```
 
-Swap the trailing `mcpserver` for `mcpserver-http` to run the HTTP server the same way. To pin a
-specific commit, tag, or branch, append it to the URL —
-`git+https://github.com/telvis07/mcp-server-deep-dive-deployment@main`. Without a ref, `uvx` tracks
-the default branch, and it caches builds: pass `--refresh` to pick up new commits.
+`demo` is the whole story for stdio: Claude Desktop runs `uvx`, which builds from GitHub and speaks
+MCP over the subprocess pipes.
+
+`demo-http` needs the extra hop. Claude Desktop's config launches commands, so a remote server is
+reached through the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge, which Claude
+Desktop starts over stdio and which forwards to the HTTP endpoint. **The server must already be
+running** — `uv run mcpserver-http` in its own terminal — or the bridge has nothing to connect to.
+
+> Claude Code talks to HTTP servers natively via `--transport http`, so it needs no bridge. If your
+> Claude Desktop build offers remote servers directly in Settings → Connectors, prefer that over
+> `mcp-remote`.
 
 ## Tools
 
-| Tool       | Signature                         | Server        | Description                                    |
-| ---------- | --------------------------------- | ------------- | ---------------------------------------------- |
-| `add`      | `add(x: int, y: int) -> int`      | both          | Sums 2 numbers.                                 |
-| `count_to` | `count_to(n: int) -> str`         | HTTP only     | Counts to n, streaming a progress update per step. |
+| Tool       | Signature                       | `mcpserver` | `mcpserver-http` | Description                                        |
+| ---------- | ------------------------------- | :---------: | :--------------: | -------------------------------------------------- |
+| `add`      | `add(x: int, y: int) -> int`    |      ✅      |        ✅         | Sums 2 numbers.                                     |
+| `count_to` | `count_to(n: int) -> str`       |      —      |        ✅         | Counts to n, streaming a progress update per step.  |
+| `greeting` | `greeting(name: str) -> str`    |      —      |        ✅         | Send a greeting.                                    |
 
 `count_to` is the one that shows why streamable HTTP exists: the client receives progress
 notifications while the call is still running, instead of one lump of output at the end.
 
 ## Verify the install
 
-Once a server is registered, ask the client to list its tools. Every tool in the table above should
-show up for that server — `add(x=2, y=3)` should return `5`, and against the HTTP server
-`count_to(n=5)` should emit 5 progress notifications before returning.
+Once a server is registered, ask the client to list its tools and check them against the table
+above: `mcpserver` should offer `add` alone, `mcpserver-http` all three.
+
+Then call a couple:
+
+- `add(x=2, y=3)` returns `5` on either server.
+- `greeting(name="Telvis")` returns `Hi Telvis` on the HTTP server.
+- `count_to(n=5)` returns `Counted to 5.` and emits 5 progress notifications before it finishes.
 
 ## Project layout
 

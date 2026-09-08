@@ -49,6 +49,12 @@ async def count_to(n: int, ctx: Context) -> str:
     return f"Counted to {n}."
 
 
+@mcp.tool()
+def greeting(name: str) -> str:
+    """Send a greeting"""
+    return f"Hi {name}"
+
+
 def main() -> int:
     return serve(
         mcp,
