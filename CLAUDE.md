@@ -78,6 +78,33 @@ required.
 Tool signatures are the contract the model reads: type hints generate the input schema and the
 docstring becomes the tool description. Existing tools use `:param:`/`:return:` reST style.
 
+## Keep personal information out
+
+This repo is public and meant to be read by strangers following the same course. Default to
+placeholders over real identifiers.
+
+- **Docs use `USERNAME`**, not the real GitHub account, in every clone and `uvx` URL. The README
+  explains the substitution once under Local setup — don't "fix" the placeholders back to a real
+  account.
+- **`render.yaml`'s `repo:` is the one deliberate exception** and is commented as such: Render
+  resolves it to know what to clone, and `render blueprints validate` rejects the file without it.
+- **`pyproject.toml` has no `authors` block.** It was removed because it carried a personal email;
+  `authors` is optional under PEP 621 and `uv lock --check` confirms its absence doesn't invalidate
+  `uv.lock`. Don't add one back with a real address.
+- **Examples use invented names** (`greeting(name="Ada")`), not the author's.
+- **Commits use a GitHub `@users.noreply.github.com` address**, already set in this repo's local git
+  config (`git config user.email` to see it). History was rewritten once to remove a personal email;
+  don't reintroduce one. Note the *global* git config still carries a real address, so a repo created
+  elsewhere won't inherit this.
+
+- **No `Claude-Session:` trailers in commit messages.** They link to private claude.ai sessions and
+  were stripped from history deliberately. Keep `Co-Authored-By:` — that attribution is fine — but
+  drop the session line even when a commit template offers it.
+
+Before committing anything new, it's worth a quick `git ls-files -z | xargs -0 grep -ri <name>` to
+confirm nothing personal crept back in. Real deployed hostnames, workspace IDs, and dashboard URLs
+belong in local scratch notes (`_tasks/`, gitignored) rather than tracked files.
+
 ## Conventions
 
 - The README's **Tools** table is the single place listing what each server exposes. Add a row when
