@@ -167,8 +167,32 @@ Desktop starts over stdio and which forwards to the HTTP endpoint. **The server 
 running** — `uv run mcpserver-http` in its own terminal — or the bridge has nothing to connect to.
 
 > Claude Code talks to HTTP servers natively via `--transport http`, so it needs no bridge there.
-> `mcp-remote` is the approach the course uses for Claude Desktop; some Desktop builds can also add
-> remote servers under Settings → Connectors, but the bridge is what these instructions assume.
+
+#### Why not Settings → Connectors?
+
+Claude's **Add custom connector** dialog rejects anything that is not `https`:
+
+```
+http://127.0.0.1:8000/mcp
+⚠ URL must start with 'https'
+```
+
+A local server has no certificate, so the Connectors UI is not an option during development —
+`mcp-remote` is. The bridge runs as a stdio subprocess and speaks plain HTTP to the server, so no
+TLS is involved.
+
+If you later want to connect a *deployed* server through Connectors, note that binding to localhost
+turns on DNS-rebinding protection, which only accepts `Host` headers matching `127.0.0.1:*`,
+`localhost:*`, or `[::1]:*`:
+
+```
+Host: 127.0.0.1:8000    -> 200
+Host: abc123.ngrok.app  -> 421 Misdirected Request
+```
+
+So a plain tunnel gets refused. Either rewrite the forwarded header
+(`ngrok http 8000 --host-header=rewrite`) or pass explicit `allowed_hosts` via
+`TransportSecuritySettings`.
 
 ## Tools
 
