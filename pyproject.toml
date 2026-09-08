@@ -15,7 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-mcpserver = "mcp_server_deep_dive_deployment.__main__:main"
+mcpserver = "mcp_server_deep_dive_deployment.deployment:main"
+mcpserver-http = "mcp_server_deep_dive_deployment.http_streamable_io:main"
 
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]

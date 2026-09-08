@@ -1,20 +1,10 @@
-from mcp_server_deep_dive_deployment.deployment import mcp
-import logging
-import sys
+"""Entry point for `python -m mcp_server_deep_dive_deployment`.
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+Defaults to the stdio Demo server. The streamable HTTP server has its own
+console script; see the README.
+"""
 
-def main():
-    logger.info("Starting mcp server")
-    try:
-        mcp.run()
-    except KeyboardInterrupt:
-        logger.info("Interrupted, shutting down")
-        return 130
-    finally:
-        logger.info("Stopping mcp server")
-    return 0
+from mcp_server_deep_dive_deployment.deployment import main
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
