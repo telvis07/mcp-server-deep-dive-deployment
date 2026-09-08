@@ -1,0 +1,43 @@
+# Render Blueprint for the streamable HTTP MCP server.
+#
+# Only mcpserver-http is deployable. The stdio server is launched by the client
+# as a subprocess, so there is nothing for Render to host.
+#
+# No application code changes are needed: http_streamable_io.main() already
+# reads HOST and PORT from the environment. Render injects PORT; HOST is set
+# below.
+
+services:
+  - type: web
+    name: mcp-server-deep-dive
+    runtime: python
+    # Free spins down after 15 minutes idle and takes ~1 minute to wake. Wake it
+    # with a cheap call (add) before demoing count_to, or the first tool call
+    # eats the cold start. Switch to `starter` for an always-on service.
+    plan: free
+    region: oregon
+    repo: https://github.com/telvis07/mcp-server-deep-dive-deployment
+    branch: main
+
+    # Deploy on every merge to main.
+    autoDeployTrigger: commit
+
+    # --frozen installs uv.lock exactly and fails rather than silently
+    # re-resolving. Dropping it would defeat the point of committing the lock.
+    buildCommand: pip install uv && uv sync --frozen
+
+    # Call the console script directly rather than via `uv run`, which would
+    # re-check the environment on every start and require uv on PATH at
+    # runtime. This is the entry point uv sync already installed.
+    startCommand: ./.venv/bin/mcpserver-http
+
+    # No healthCheckPath: nothing is mounted at /, so a check there would 404
+    # and Render would restart the service in a loop. With it omitted, Render
+    # marks the service live once the port is bound.
+
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+
+# Python version comes from .python-version (3.14), which Render reads
+# natively. PORT is injected by Render and must not be set here.
