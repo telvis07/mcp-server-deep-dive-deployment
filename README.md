@@ -166,9 +166,9 @@ reached through the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bri
 Desktop starts over stdio and which forwards to the HTTP endpoint. **The server must already be
 running** — `uv run mcpserver-http` in its own terminal — or the bridge has nothing to connect to.
 
-> Claude Code talks to HTTP servers natively via `--transport http`, so it needs no bridge. If your
-> Claude Desktop build offers remote servers directly in Settings → Connectors, prefer that over
-> `mcp-remote`.
+> Claude Code talks to HTTP servers natively via `--transport http`, so it needs no bridge there.
+> `mcp-remote` is the approach the course uses for Claude Desktop; some Desktop builds can also add
+> remote servers under Settings → Connectors, but the bridge is what these instructions assume.
 
 ## Tools
 
