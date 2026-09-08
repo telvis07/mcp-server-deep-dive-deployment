@@ -14,8 +14,11 @@ installed and run directly from this GitHub repository, with no clone required.
 
 ## Local setup
 
+`USERNAME` throughout this README stands in for the GitHub account hosting the repo — substitute
+your own.
+
 ```bash
-git clone https://github.com/telvis07/mcp-server-deep-dive-deployment.git
+git clone https://github.com/USERNAME/mcp-server-deep-dive-deployment.git
 cd mcp-server-deep-dive-deployment
 uv sync
 ```
@@ -111,12 +114,12 @@ straight from the repo. Nothing needs to be published to PyPI.
 Verify it works end to end — swap the trailing script name to pick a server:
 
 ```bash
-uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver
-uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver-http
+uvx --from git+https://github.com/USERNAME/mcp-server-deep-dive-deployment mcpserver
+uvx --from git+https://github.com/USERNAME/mcp-server-deep-dive-deployment mcpserver-http
 ```
 
 To pin a specific commit, tag, or branch, append it to the URL —
-`git+https://github.com/telvis07/mcp-server-deep-dive-deployment@main`. Without a ref, `uvx` tracks
+`git+https://github.com/USERNAME/mcp-server-deep-dive-deployment@main`. Without a ref, `uvx` tracks
 the default branch, and it caches builds: pass `--refresh` to pick up new commits.
 
 ## Deploy to Render
@@ -197,7 +200,7 @@ The two servers are registered differently, because stdio is launched and HTTP i
 
 ```bash
 # stdio — Claude Code launches it
-claude mcp add demo -- uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver
+claude mcp add demo -- uvx --from git+https://github.com/USERNAME/mcp-server-deep-dive-deployment mcpserver
 
 # streamable HTTP, local — start the server first, then point at the URL
 claude mcp add --transport http demo-http http://127.0.0.1:8000/mcp
@@ -219,7 +222,7 @@ Add to `claude_desktop_config.json` and restart Claude Desktop. Both entries can
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/telvis07/mcp-server-deep-dive-deployment",
+        "git+https://github.com/USERNAME/mcp-server-deep-dive-deployment",
         "mcpserver"
       ]
     },
@@ -306,7 +309,7 @@ above: `mcpserver` should offer `add` alone, `mcpserver-http` all three.
 Then call a couple:
 
 - `add(x=2, y=3)` returns `5` on either server.
-- `greeting(name="Telvis")` returns `Hi Telvis` on the HTTP server.
+- `greeting(name="Ada")` returns `Hi Ada` on the HTTP server.
 - `count_to(n=5)` returns `Counted to 5.` and emits 5 progress notifications before it finishes.
 
 Against a deployed server on the free plan, run `add` first — it doubles as the wake-up call, so
@@ -352,7 +355,7 @@ Restart the client (or `--refresh` the `uvx` install) to pick up the change, and
 2. Give it a `main()` that returns `serve(mcp, ...)` from `runner.py`.
 3. Register a console script in `pyproject.toml` under `[project.scripts]`.
 
-Clients then select it by name: `uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment <script>`.
+Clients then select it by name: `uvx --from git+https://github.com/USERNAME/mcp-server-deep-dive-deployment <script>`.
 
 If the new server should also be deployed, add a second entry under `services:` in `render.yaml`
 with its own `name` and `startCommand`. Each Render service runs one process, so two deployed

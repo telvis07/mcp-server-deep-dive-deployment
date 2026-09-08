@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A teaching repo with two example MCP servers — one over **stdio**, one over **streamable HTTP** —
 kept deliberately parallel so the transports can be compared. It is packaged so `uvx --from
-git+https://github.com/telvis07/mcp-server-deep-dive-deployment <script>` works with no clone, which
+git+https://github.com/USERNAME/mcp-server-deep-dive-deployment <script>` works with no clone, which
 is why the console scripts in `pyproject.toml` are load-bearing rather than a convenience.
 
 ## Commands

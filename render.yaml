@@ -16,6 +16,10 @@ services:
     # eats the cold start. Switch to `starter` for an always-on service.
     plan: free
     region: oregon
+    # Must be the real repo URL, not a placeholder: Render resolves this to know
+    # what to clone and sync, and `render blueprints validate` rejects the file
+    # without it. The README uses USERNAME instead, which is fine there because
+    # nothing reads it.
     repo: https://github.com/telvis07/mcp-server-deep-dive-deployment
     branch: main
 
