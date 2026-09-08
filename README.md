@@ -1,9 +1,11 @@
 # mcp-server-deep-dive-deployment
 
-Example [Model Context Protocol](https://modelcontextprotocol.io) servers, built for the MCP
-developer course. The repo ships two of them — one over **stdio**, one over **streamable HTTP** —
-so the two transports can be compared side by side. Both are packaged so they can be installed and
-run directly from this GitHub repository, with no clone required.
+Example [Model Context Protocol](https://modelcontextprotocol.io) servers, built while working
+through the course below. The repo ships two of them — one over **stdio**, one over **streamable
+HTTP** — so the two transports can be compared side by side. Both are packaged so they can be
+installed and run directly from this GitHub repository, with no clone required.
+
+> **Course:** [MCP Complete Guide – Build and Connect Tools for LLMs](https://learning.oreilly.com/course/mcp-complete-guide/9781806384136/) (O'Reilly)
 
 ## Prerequisites
 
