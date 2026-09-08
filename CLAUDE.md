@@ -25,6 +25,29 @@ standalone Inspector (`npx @modelcontextprotocol/inspector@latest`) with Transpo
 
 There is no test suite, linter, or formatter configured. Don't invent commands for them.
 
+## Deployment
+
+`render.yaml` deploys `mcpserver-http` to Render's **native Python runtime** — not Docker. Don't
+propose a Dockerfile; Render reads the existing `.python-version` (3.14) and the build installs from
+`uv.lock` via `uv sync --frozen`. Keep `--frozen`: it is what makes deploys reproducible, and the
+lockfile is committed for exactly that reason.
+
+```bash
+CI=true render blueprints validate    # validate render.yaml before pushing
+```
+
+Two settings look like oversights and are not:
+
+- **No `healthCheckPath`.** Nothing is mounted at `/`, so a check there would 404 in a restart loop.
+- **`startCommand` calls `./.venv/bin/mcpserver-http` directly**, not `uv run`, which would re-check
+  the environment on every start and need `uv` on `PATH` at runtime.
+
+`autoDeployTrigger: commit` means merging to `main` redeploys. Note `autoDeploy` and `env` are
+deprecated Blueprint keys — use `autoDeployTrigger` and `runtime`.
+
+Deployment needs no application code: `http_streamable_io.main()` already reads `HOST`/`PORT` from
+the environment. Keep it that way rather than hardcoding Render specifics into the server module.
+
 ## Architecture
 
 ```

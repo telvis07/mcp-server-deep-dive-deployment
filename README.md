@@ -119,6 +119,76 @@ To pin a specific commit, tag, or branch, append it to the URL —
 `git+https://github.com/telvis07/mcp-server-deep-dive-deployment@main`. Without a ref, `uvx` tracks
 the default branch, and it caches builds: pass `--refresh` to pick up new commits.
 
+## Deploy to Render
+
+`uvx` still runs the server on your machine. Deploying puts it somewhere that is already listening,
+which is the situation streamable HTTP exists for. Only `mcpserver-http` can be deployed — the stdio
+server is launched by its client as a subprocess, so there is nothing for a host to run.
+
+`render.yaml` at the repo root defines the service. Render dashboard → **New** → **Blueprint** →
+select this repo → **Apply**.
+
+**No application code changes were needed.** `http_streamable_io.main()` already reads `HOST` and
+`PORT` from the environment, so deployment is pure configuration: Render injects `PORT`, and the
+Blueprint supplies `HOST=0.0.0.0`.
+
+Three choices in that file are worth understanding, because each one is a trap avoided:
+
+| Setting | Why |
+| --- | --- |
+| `buildCommand: pip install uv && uv sync --frozen` | `--frozen` installs `uv.lock` exactly and fails rather than silently re-resolving. Without it, deploys stop being reproducible — which is why the lockfile is committed. |
+| `startCommand: ./.venv/bin/mcpserver-http` | The console script `uv sync` installed. Calling it directly avoids `uv run`, which re-checks the environment on every start and needs `uv` on `PATH` at runtime. |
+| no `healthCheckPath` | Nothing is mounted at `/`, so a health check there would 404 and Render would restart the service in a loop. Omitted, the service goes live once the port is bound. |
+
+The Python version needs no Render-specific setting: Render reads the existing `.python-version`.
+
+`autoDeployTrigger: commit` means every merge to `main` redeploys.
+
+### Free tier and the cold start
+
+The service runs on Render's free plan, which spins down after 15 minutes idle and takes about a
+minute to wake. That matters most for the one tool you actually want to demo:
+
+**Call `add` first to wake the server, then call `count_to`.** Running `count_to` against a sleeping
+instance confounds the result — you cannot tell whether missing progress updates mean the stream was
+buffered or the instance was still booting.
+
+Switch `plan: free` to `plan: starter` in `render.yaml` for an always-on service.
+
+### Streaming survives the proxy
+
+Worth confirming rather than assuming, since a proxy that buffers responses would silently reduce
+streaming to a single lump of output at the end. Against the deployed server, `count_to(5)` emits its
+progress notifications about 100 ms apart — matching the `asyncio.sleep(0.1)` in the tool, so nothing
+is being buffered between Render's edge and the client.
+
+The MCP endpoint is served with `cache-control: no-cache, no-transform`, which is what preserves it.
+
+### The deployed endpoint is public
+
+Anyone with the URL can call these tools. There is no authentication.
+
+Binding `0.0.0.0` also turns **off** DNS-rebinding protection. `MCPServer` enables it automatically
+only when the host is `127.0.0.1`, `localhost`, or `::1`; for any other bind address the transport
+security settings default to disabled, so no `Host` or `Origin` validation runs at all.
+
+That is acceptable here — `add`, `greeting`, and `count_to` touch no state, secrets, or network — but
+it is a deliberate choice, not a default to inherit. To close it, pass explicit
+`TransportSecuritySettings` through `serve()`, which already forwards `**run_kwargs` to
+`MCPServer.run()`:
+
+```python
+serve(
+    mcp,
+    transport="streamable-http",
+    host=..., port=...,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[os.environ["RENDER_EXTERNAL_HOSTNAME"]],
+    ),
+)
+```
+
 ## Connecting a client
 
 The two servers are registered differently, because stdio is launched and HTTP is dialed.
@@ -129,9 +199,14 @@ The two servers are registered differently, because stdio is launched and HTTP i
 # stdio — Claude Code launches it
 claude mcp add demo -- uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment mcpserver
 
-# streamable HTTP — start the server first, then point at the URL
+# streamable HTTP, local — start the server first, then point at the URL
 claude mcp add --transport http demo-http http://127.0.0.1:8000/mcp
+
+# streamable HTTP, deployed — already listening, so nothing to start
+claude mcp add --transport http demo-mcp https://<your-service>.onrender.com/mcp
 ```
+
+The last one is the payoff of deploying: no local process, no `uvx` build, no terminal to keep open.
 
 ### Claude Desktop
 
@@ -170,7 +245,7 @@ running** — `uv run mcpserver-http` in its own terminal — or the bridge has 
 
 > Claude Code talks to HTTP servers natively via `--transport http`, so it needs no bridge there.
 
-#### Why not Settings → Connectors?
+#### Why not Settings → Connectors? (locally)
 
 Claude's **Add custom connector** dialog rejects anything that is not `https`:
 
@@ -183,9 +258,9 @@ A local server has no certificate, so the Connectors UI is not an option during 
 `mcp-remote` is. The bridge runs as a stdio subprocess and speaks plain HTTP to the server, so no
 TLS is involved.
 
-If you later want to connect a *deployed* server through Connectors, note that binding to localhost
-turns on DNS-rebinding protection, which only accepts `Host` headers matching `127.0.0.1:*`,
-`localhost:*`, or `[::1]:*`:
+The obvious workaround is a tunnel, and it does not work either. Binding to localhost turns *on*
+DNS-rebinding protection, which only accepts `Host` headers matching `127.0.0.1:*`, `localhost:*`,
+or `[::1]:*`:
 
 ```
 Host: 127.0.0.1:8000    -> 200
@@ -195,6 +270,22 @@ Host: abc123.ngrok.app  -> 421 Misdirected Request
 So a plain tunnel gets refused. Either rewrite the forwarded header
 (`ngrok http 8000 --host-header=rewrite`) or pass explicit `allowed_hosts` via
 `TransportSecuritySettings`.
+
+#### …and why deploying fixes it
+
+A Render URL is `https` with a real certificate, so the constraint that ruled out Connectors during
+development no longer applies: the deployed endpoint is eligible for **Add custom connector**, with
+no `mcp-remote` bridge and no tunnel. (The `https` rejection is what was verified here; the rest of
+the Connectors flow is left as an exercise. `mcp-remote` against the deployed URL works regardless.)
+
+This is the clearest argument for the streamable HTTP transport in the whole repo. The same server
+that needed a stdio bridge to reach Claude Desktop locally is reachable directly once it lives at a
+public `https` URL.
+
+Note that the tunnel problem above inverts once deployed, rather than disappearing. On Render the
+server binds `0.0.0.0`, and DNS-rebinding protection is enabled only for localhost binds — so the
+421 goes away because **nothing is being checked**, not because the hostname is now allowed. See
+[The deployed endpoint is public](#the-deployed-endpoint-is-public).
 
 ## Tools
 
@@ -218,9 +309,13 @@ Then call a couple:
 - `greeting(name="Telvis")` returns `Hi Telvis` on the HTTP server.
 - `count_to(n=5)` returns `Counted to 5.` and emits 5 progress notifications before it finishes.
 
+Against a deployed server on the free plan, run `add` first — it doubles as the wake-up call, so
+`count_to` is measuring the stream rather than the cold start.
+
 ## Project layout
 
 ```
+render.yaml                 # Render Blueprint for the deployed HTTP server
 src/mcp_server_deep_dive_deployment/
 ├── __init__.py
 ├── __main__.py             # `python -m ...`, defaults to the stdio server
@@ -230,7 +325,8 @@ src/mcp_server_deep_dive_deployment/
 ```
 
 Startup plumbing lives once in `runner.py`, so a server module is just its tools plus a `main()`
-that hands the server to `serve()`.
+that hands the server to `serve()`. Because `serve()` forwards `**run_kwargs` to `MCPServer.run()`,
+transport options like `transport_security` can be passed without touching `runner.py`.
 
 ## Adding a tool
 
@@ -257,3 +353,7 @@ Restart the client (or `--refresh` the `uvx` install) to pick up the change, and
 3. Register a console script in `pyproject.toml` under `[project.scripts]`.
 
 Clients then select it by name: `uvx --from git+https://github.com/telvis07/mcp-server-deep-dive-deployment <script>`.
+
+If the new server should also be deployed, add a second entry under `services:` in `render.yaml`
+with its own `name` and `startCommand`. Each Render service runs one process, so two deployed
+servers means two services.
